@@ -1,4 +1,4 @@
-from visual_odometer import VisualOdometer
+from src.visual_odometer import VisualOdometer
 import time
 
 def load(filename):
@@ -20,23 +20,26 @@ img_stream = [img0, img1] * stream_size
 
 odometer = VisualOdometer(img_size=(640, 480))
 fps = 60
-try:
-    odometer._start_pool()
-    time.sleep(.1)
 
-    for img in img_stream:
-        odometer.feed_image(img)
-        time.sleep(1 / fps)
-        # odometer.get_displacement()
+time.sleep(1)
 
-finally:
-    odometer._reset_pool()
+t0 = time.time()
+for img in img_stream:
+    odometer.feed_image(img, 2)
+    time.sleep(1 / fps)
+    odometer.get_displacement()
+delta_t = time.time() - t0
+
+print(f"""
+Number of frames: {len(img_stream)}
+Processed frames: {odometer.number_of_displacements} out of {len(img_stream)}
+Real FPS = {odometer.number_of_displacements / delta_t:.2f}."
+      """)
 
 
-# Opção B de uso:
-# with odometer:
-#     time.sleep(.1)
-#     for img in img_stream:
-#         odometer.feed_image(img)
-#         time.sleep(1 / fps)
-#         # odometer.get_displacement()
+
+
+
+
+
+
