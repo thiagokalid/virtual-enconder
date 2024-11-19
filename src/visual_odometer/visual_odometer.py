@@ -22,7 +22,8 @@ class VisualOdometer:
         self.img_size = img_size
         self.xres, self.yres = xres, yres  # Relationship between displacement in pixels and millimeters
 
-        self.current_position = (0, 0)  # In pixels
+        self.current_position = np.array([0, 0])  # In pixels
+        self.number_of_displacements = 0
         self.imgs_processed = [None, None]
         # The first imgs_processed will always be the last successful image used on a displacement estimation. The second img will be the most recent image
 
@@ -42,7 +43,7 @@ class VisualOdometer:
         with open(path + "/" + filename + ".json", 'w') as fp:
             json.dump(config, fp)
 
-    def estimate_displacement_between(self, img_beg: np.ndarray, img_end: np.ndarray):
+    def estimate_displacement_between(self, img_beg: np.ndarray, img_end: np.ndarray) -> (float, float):
         """
         Estimates the displacement between img_beg and img_end.
 
@@ -64,30 +65,33 @@ class VisualOdometer:
 
         # Convert from pixels to millimeters (or equivalent):
         deltax, deltay = _deltax * self.xres, _deltay * self.yres
-        self.current_position = self.current_position[0] + deltax, self.current_position[1] + deltay
+        self.current_position = np.array([self.current_position[0] + deltax, self.current_position[1] + deltay])
         return deltax * self.xres, deltay * self.yres
 
     def get_displacement(self):
         try:
-            # Compute the displacement:
-            displacement = self._estimate_displacement(self.imgs_processed[0], self.imgs_processed[1])
+            if (self.imgs_processed[0] is not None) and (self.imgs_processed[1] is not None):
+                # Compute the displacement:
+                displacement = self._estimate_displacement(self.imgs_processed[0], self.imgs_processed[1])
 
-            # Update the current position:
-            self.current_position[0] += displacement[0]
-            self.current_position[1] += displacement[1]
+                # Update the current position:
+                self.current_position[0] += displacement[0]
+                self.current_position[1] += displacement[1]
 
-            # Update the oldest image:
-            self.imgs_processed[0] = self.imgs_processed[1]
+                # Update the image buffer:
+                self.imgs_processed[0] = self.imgs_processed[1]
+                self.imgs_processed[1] = None
+                self.number_of_displacements += 1
 
-            return displacement
+                return displacement
         except NotImplementedError:
             return None, None
 
-    def feed_image(self, img: np.ndarray) -> None:
+    def feed_image(self, img: np.ndarray, downsampling_factor: int = 1) -> None:
         # Update the latest image:
         if self.imgs_processed[0] is None:
             # The first iteration
-            self.imgs_processed[0] = image_preprocessing(img)
+            self.imgs_processed[0] = image_preprocessing(img, downsampling_factor)
         else:
             # Update the current image:
-            self.imgs_processed[1] = image_preprocessing(img)
+            self.imgs_processed[1] = image_preprocessing(img, downsampling_factor)
