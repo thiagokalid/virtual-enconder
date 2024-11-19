@@ -40,8 +40,12 @@ class VisualOdometer:
             "Spatial Window": self.spatial_window,
             "Image Size": self.img_size,
         }
-        with open(path + "/" + filename + ".json", 'w') as fp:
-            json.dump(config, fp)
+        try:
+            with open(path + "/" + filename + ".json", 'w') as fp:
+                json.dump(config, fp)
+            return True
+        except:
+            return False
 
     def estimate_displacement_between(self, img_beg: np.ndarray, img_end: np.ndarray) -> (float, float):
         """
