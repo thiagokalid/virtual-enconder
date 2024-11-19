@@ -6,17 +6,20 @@ from scipy.sparse.linalg import svds
 
 try:
     import cupy as cp
+
     GPU_AVAILABLE = True
 except ImportError:
     GPU_AVAILABLE = False
 
-def normalize_product(F: ndarray, G: ndarray, method="Stone_et_al_2001") -> ndarray:
+
+def normalize_product(F: ndarray, G: ndarray) -> ndarray:
     # Versão modificada de crosspower_spectrum() para melhorias de eficiência
 
     Q = F * np.conj(G) / np.abs(F * np.conj(G))
     return Q
 
-def phase_fringe_filter(cross_power_spectrum: ndarray, window_size=(5, 5), threshold=0.03):
+
+def phase_fringe_filter(cross_power_spectrum: ndarray, window_size: tuple = (5, 5), threshold: float = 0.03) -> ndarray:
     # Aplica o filtro de média para reduzir o ruído
     filtered_spectrum = convolve(cross_power_spectrum, np.ones(window_size) / np.prod(window_size), mode='constant')
 
@@ -32,24 +35,27 @@ def phase_fringe_filter(cross_power_spectrum: ndarray, window_size=(5, 5), thres
 
     return phase_filtered_spectrum
 
-def linear_regression(x, y):
+
+def linear_regression(x: ndarray, y: ndarray) -> (float, float):
     R = np.ones((x.size, 2))
     R[:, 0] = x
     mu, c = np.linalg.inv((R.transpose() @ R)) @ R.transpose() @ y
     return mu, c
 
-def phase_unwrapping(phase_vec, factor=0.7):
+
+def phase_unwrapping(phase_vec: ndarray, factor: float = 0.7) -> ndarray:
     phase_diff = np.diff(phase_vec)
     corrected_difference = phase_diff - 2. * np.pi * (phase_diff > (2 * np.pi * factor)) + 2. * np.pi * (
             phase_diff < -(2 * np.pi * factor))
     return np.cumsum(corrected_difference)
 
-def svd_estimate_shift(phase_vec, N, phase_windowing=None):
+
+def svd_estimate_shift(phase_vec: ndarray, N: int, phase_windowing=None) -> float:
     # Phase unwrapping:
     phase_unwrapped = phase_unwrapping(phase_vec)
     r = np.arange(0, phase_unwrapped.size)
     M = r.size // 2
-    if phase_windowing == None or phase_windowing == False:
+    if phase_windowing is None or phase_windowing == False:
         x = r
         y = phase_unwrapped
     elif phase_windowing == "central":
@@ -62,7 +68,9 @@ def svd_estimate_shift(phase_vec, N, phase_windowing=None):
     delta = mu * N / (2 * np.pi)
     return delta
 
-def svd_method(fft_beg: ndarray, fft_end: ndarray, M: int, N: int, phase_windowing=None, finge_filter=True, use_gpu = False):
+
+def svd_method(fft_beg: ndarray, fft_end: ndarray, M: int, N: int, phase_windowing=None, finge_filter=True,
+               use_gpu=False) -> (float, float):
     Q = normalize_product(fft_beg, fft_end)
     if finge_filter is True:
         Q = phase_fringe_filter(Q)
@@ -75,7 +83,8 @@ def svd_method(fft_beg: ndarray, fft_end: ndarray, M: int, N: int, phase_windowi
             ang_qu = cp.angle(qu[:, 0])
             ang_qv = cp.angle(qv[0, :])
         else:
-            raise NotImplementedError("Erro, cupy não está instalado, coloque use_gpu como False ou instale o cupy usando pip install cupy-cuda11x")
+            raise NotImplementedError(
+                "Erro, cupy não está instalado, coloque use_gpu como False ou instale o cupy usando pip install cupy-cuda11x")
     else:
         # Usar SVD de CPU (SciPy)
         qu, s, qv = svds(Q, k=1)
