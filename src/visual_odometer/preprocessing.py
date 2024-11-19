@@ -1,7 +1,8 @@
 import numpy as np
 from numpy.fft import fft2, fftshift
 
-def apply_raised_cosine_window(image):
+
+def apply_raised_cosine_window(image: np.ndarray):
     rows, cols = image.shape
     i = np.arange(rows)
     j = np.arange(cols)
@@ -9,7 +10,8 @@ def apply_raised_cosine_window(image):
              0.5 * (1 + np.cos(np.pi * (2 * j - cols) / cols))
     return image * window
 
-def blackman_harris_window(size, a0=0.35875, a1=0.48829, a2=0.14128, a3=0.01168):
+
+def blackman_harris_window(size: int, a0: float=0.35875, a1: float=0.48829, a2: float=0.14128, a3: float=0.01168):
     # a0, a1, a2 e a3 são os coeficientes de janelamento
     # Criação do vetor de amostras
     n = np.arange(size)
@@ -18,14 +20,16 @@ def blackman_harris_window(size, a0=0.35875, a1=0.48829, a2=0.14128, a3=0.01168)
         6 * np.pi * n / (size - 1))
     return window
 
-def apply_blackman_harris_window(image):
+
+def apply_blackman_harris_window(image: np.ndarray):
     height, width = image.shape
     window_row = blackman_harris_window(width)
     window_col = blackman_harris_window(height)
     image_windowed = np.outer(window_col, window_row) * image
     return image_windowed
 
-def apply_border_windowing_on_image(image, border_windowing_method="blackman_harris"):
+
+def apply_border_windowing_on_image(image: np.ndarray, border_windowing_method: str="blackman_harris"):
     if border_windowing_method == "blackman_harris":
         return apply_blackman_harris_window(image)
     elif border_windowing_method == "raised_cosine":
@@ -33,10 +37,11 @@ def apply_border_windowing_on_image(image, border_windowing_method="blackman_har
     elif border_windowing_method == None:
         return image
 
-def ideal_lowpass(I, factor=0.6, method='Stone_et_al_2001'):
+
+def ideal_lowpass(I: np.ndarray, factor: float = 0.6, method: str = 'Stone_et_al_2001'):
     if method == 'Stone_et_al_2001':
-        m = factor * I.shape[0]/2
-        n = factor * I.shape[1]/2
+        m = factor * I.shape[0] / 2
+        n = factor * I.shape[1] / 2
         N = np.min([m, n])
         I = I[int(I.shape[0] // 2 - N): int(I.shape[0] // 2 + N),
             int(I.shape[1] // 2 - N): int(I.shape[1] // 2 + N)]
@@ -44,7 +49,7 @@ def ideal_lowpass(I, factor=0.6, method='Stone_et_al_2001'):
     else:
         raise ValueError('Método não suportado.')
 
-def image_preprocessing(image, method='Stone_et_al_2001'):
+
 def image_preprocessing(image: np.ndarray, downsampling_factor: int = 2, method='Stone_et_al_2001'):
     image = image[::downsampling_factor, ::downsampling_factor]
     fft_from_image = fftshift(fft2(image))
