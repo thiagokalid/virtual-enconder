@@ -75,7 +75,7 @@ def svd_method(fft_beg: ndarray, fft_end: ndarray, M: int, N: int, phase_windowi
             ang_qu = cp.angle(qu[:, 0])
             ang_qv = cp.angle(qv[0, :])
         else:
-            raise Exception("Erro, cupy não está instalado, coloque use_gpu como False ou instale o cupy usando pip install cupy-cuda11x")
+            raise NotImplementedError("Erro, cupy não está instalado, coloque use_gpu como False ou instale o cupy usando pip install cupy-cuda11x")
     else:
         # Usar SVD de CPU (SciPy)
         qu, s, qv = svds(Q, k=1)
