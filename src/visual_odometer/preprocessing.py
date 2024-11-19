@@ -45,6 +45,8 @@ def ideal_lowpass(I, factor=0.6, method='Stone_et_al_2001'):
         raise ValueError('Método não suportado.')
 
 def image_preprocessing(image, method='Stone_et_al_2001'):
+def image_preprocessing(image: np.ndarray, downsampling_factor: int = 2, method='Stone_et_al_2001'):
+    image = image[::downsampling_factor, ::downsampling_factor]
     fft_from_image = fftshift(fft2(image))
     if method is not None:
         fft_from_image = ideal_lowpass(fft_from_image, method=method)
