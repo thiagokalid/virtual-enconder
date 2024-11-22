@@ -2,19 +2,13 @@ import numpy as np
 import json
 from .displacement_estimators.svd import svd_method
 from .preprocessing import image_preprocessing
-from .displacementprocessor import DisplacementProcessor
 import threading
-from collections import deque
-import warnings
-
-
 class VisualOdometer:
     def __init__(self, img_size,
                  xres=1, yres=1,
                  displacement_algorithm="svd",
                  frequency_window="Stone_et_al_2001",
-                 spatial_window="blackman-harris",
-                 num_threads=4, img_buffersize=5):
+                 spatial_window="blackman-harris"):
 
         self.displacement_algorithm = displacement_algorithm
         self.frequency_window = frequency_window
@@ -24,11 +18,11 @@ class VisualOdometer:
 
         self.current_position = np.array([0, 0])  # In pixels
         self.number_of_displacements = 0
-        self.imgs_processed = [None, None]
-        # The first imgs_processed will always be the last successful image used on a displacement estimation. The second img will be the most recent image
 
-        #
-        self.num_threads = num_threads  # How many threads are dedicated towards displacement estimation
+        self.imgs_lock = threading.Lock()
+        self.imgs_processed = [None, None]
+        # The first img in imgs_processed will always be the last successful image used on a displacement estimation.
+        # The second img will be the most recent image
 
     def calibrate(self, new_xres: float, new_yres: float):
         self.xres, self.yres = new_xres, new_yres
@@ -74,20 +68,24 @@ class VisualOdometer:
 
     def get_displacement(self):
         try:
-            if (self.imgs_processed[0] is not None) and (self.imgs_processed[1] is not None):
-                # Compute the displacement:
-                displacement = self._estimate_displacement(self.imgs_processed[0], self.imgs_processed[1])
+            # Compute the displacement:
+            img_beg = self.imgs_processed[0]
 
-                # Update the current position:
-                self.current_position[0] += displacement[0]
-                self.current_position[1] += displacement[1]
-
+            with self.imgs_lock:
+                img_end = self.imgs_processed[1].copy()
                 # Update the image buffer:
-                self.imgs_processed[0] = self.imgs_processed[1]
-                self.imgs_processed[1] = None
-                self.number_of_displacements += 1
 
-                return displacement
+            self.imgs_processed[0] = img_end
+
+            displacement = self._estimate_displacement(img_beg, img_end)
+
+            # Update the current position:
+            self.current_position[0] += displacement[0]
+            self.current_position[1] += displacement[1]
+
+            self.number_of_displacements += 1
+
+            return displacement
         except NotImplementedError:
             return None, None
 
@@ -98,4 +96,6 @@ class VisualOdometer:
             self.imgs_processed[0] = image_preprocessing(img, downsampling_factor)
         else:
             # Update the current image:
-            self.imgs_processed[1] = image_preprocessing(img, downsampling_factor)
+            new_img = image_preprocessing(img, downsampling_factor)
+            with self.imgs_lock:
+                self.imgs_processed[1] = new_img
