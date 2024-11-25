@@ -6,46 +6,56 @@ from numpy import pi
 import time
 
 from src.visual_odometer.displacement_estimators.svd import phase_unwrapping
-matplotlib.use('QtAgg')
+
+matplotlib.use('TkAgg')
+
 
 def G(x, k):
     N = len(x)
     y = np.zeros(N)
-    for n in range(N-2):
-        y[n] = D(x, k, n+1) - D(x, k, n)
+    for n in range(N - 2):
+        y[n] = D(x, k, n + 1) - D(x, k, n)
     return y
 
+
 def D(x, k, n):
-    return (x[n+1] + 2*pi*k[n+1]) - (x[n] + 2*pi*k[n])
+    return (x[n + 1] + 2 * pi * k[n + 1]) - (x[n] + 2 * pi * k[n])
+
 
 def costfun(k):
     N = len(k)
     s = 0
-    for n in range(N-2):
-        s += 4*pi**2 * (k[n+2]**2 - 4*k[n+2]*k[n+1] + 4*k[n+2]*k[n] + 4*k[n+1]**2 - 4*k[n+1]*k[n] + k[n]**2)
+    for n in range(N - 2):
+        s += 4 * pi ** 2 * (
+                    k[n + 2] ** 2 - 4 * k[n + 2] * k[n + 1] + 4 * k[n + 2] * k[n] + 4 * k[n + 1] ** 2 - 4 * k[n + 1] *
+                    k[n] + k[n] ** 2)
     return s
+
 
 def build_k_matrix(x):
     N = len(x)
     K = scipy.sparse.csc_array((N, N))
-    for n in range(N-2):
+    for n in range(N - 2):
         K[n, n] = -2 * pi  # k[n]
-        K[n, n+1] = 4 * pi  # k[n+1]
-        K[n, n+2] = -2 * pi  # k[n+2]
+        K[n, n + 1] = 4 * pi  # k[n+1]
+        K[n, n + 2] = -2 * pi  # k[n+2]
     return K
+
 
 def build_c_vector(x):
     N = len(x)
     C = np.zeros(shape=(N, 1))
     for n in range(N - 2):
-        C[n] = x[n] - 2*x[n+1] + x[n+2]
+        C[n] = x[n] - 2 * x[n + 1] + x[n + 2]
     return C
+
+
 def milp_problem(signal: np.ndarray):
     N = len(signal)
 
     # Supondo que o vetor c = [k1, k2, ..., kN, a1, a2, ..., aN, b1, b2, ..., bN]
-    c = np.ones(3*N)
-    c[:N] = 0 # kn não está na função custo
+    c = np.ones(3 * N)
+    c[:N] = 0  # kn não está na função custo
 
     #
     eye_matrix = scipy.sparse.eye_array(N, N, format='csc')
@@ -65,7 +75,7 @@ def milp_problem(signal: np.ndarray):
         scipy.sparse.hstack((-k_matrix, zero_matrix, eye_matrix))
     ])
 
-    integrality = np.zeros(3*N, dtype=int)
+    integrality = np.zeros(3 * N, dtype=int)
     integrality[:N] = 1
 
     constraints = scipy.optimize.LinearConstraint(A, lb[:, 0], ub=10)
@@ -73,10 +83,15 @@ def milp_problem(signal: np.ndarray):
     return result.x[:N]
 
 
-min_phase = -6*np.pi
-max_phase = 6*np.pi
-step_phase = 1 * np.pi/180
-phase_ref = np.arange(min_phase, max_phase+step_phase, step_phase)
+
+min_phase = -2 * np.pi
+max_phase = 2 * np.pi
+step_phase = 10 * np.pi / 180
+ang = np.arange(min_phase, max_phase + step_phase, step_phase)
+N = len(ang)
+phase_ref = 4 * pi * np.cos(ang)
+
+
 phases = (phase_ref + np.pi) % (2 * np.pi) - np.pi
 
 k0 = np.zeros_like(phase_ref)
@@ -85,29 +100,34 @@ Gout = G(phases, k0)
 
 t0 = time.time()
 k = milp_problem(phases)
+unwrapped_milp = phases + k * 2 * pi
 delta_t = time.time() - t0
 
 t0 = time.time()
 unwrapped = phase_unwrapping(phases)
 delta_t2 = time.time() - t0
 
+plt.figure()
 plt.subplot(1, 4, 1)
 plt.title("$x[n]$")
-plt.plot(phases, "o:", label="x[n]")
+plt.plot(phases, "o-", markersize=2, label="x[n]")
 plt.xlabel(r"$1 \leq n \leq N$")
 plt.legend()
 
 plt.subplot(1, 4, 2)
 plt.title(r"$y[n]=(x[n+2]-x[n+1]) - (x[n+1]-x[n])$")
 plt.plot(Gout, 'o:', label="y[n]")
-plt.plot(np.ones_like(phases) * 2*pi, 'k:', label=r"$\pm 2\pi$")
-plt.plot(-np.ones_like(phases) * 2*pi, ':k')
+plt.plot(np.ones_like(phases) * 2 * pi, 'k:', label=r"$\pm 2\pi$")
+plt.plot(-np.ones_like(phases) * 2 * pi, ':k')
 plt.xlabel(r"$1 \leq n \leq N-2$")
 plt.legend()
 
 plt.subplot(1, 4, 3)
 plt.title(r"$x_{unwrapped}[n]=x[n]+2 \pi k[n]$")
-plt.plot(phases + k * 2 * pi, "o", label=r"$x_{unwrapped}[n]$")
+plt.plot(unwrapped_milp, "-o", label=r"$x_{unwrapped}[n]$")
+plt.plot(phase_ref, "-r", linewidth=1, label=r"$x[n]$")
+plt.plot(unwrapped, "-g", linewidth=1, label=r"Old Unwrapping")
+plt.plot(np.unwrap(phases), "-b", linewidth=1, label=r"Numpy Unwrapped")
 plt.xlabel(r"$1 \leq n \leq N$")
 plt.legend()
 
