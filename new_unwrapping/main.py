@@ -78,8 +78,8 @@ def milp_problem(signal: np.ndarray):
     integrality = np.zeros(3 * N, dtype=int)
     integrality[:N] = 3
 
-    constraints = scipy.optimize.LinearConstraint(A, lb[:, 0], ub=15)
-    result = scipy.optimize.milp(c=c, constraints=constraints, integrality=integrality, options={"node_limit": 1_000_000})
+    constraints = scipy.optimize.LinearConstraint(A, lb[:, 0], ub=60)
+    result = scipy.optimize.milp(c=c, constraints=constraints, integrality=integrality)
     return result.x[:N]
 
 

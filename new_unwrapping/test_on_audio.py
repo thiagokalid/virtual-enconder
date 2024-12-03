@@ -3,10 +3,10 @@ import audio2numpy as a2n
 
 if __name__ == "__main__":
     ang, _ = a2n.audio_from_file("audio.mp3")
-    ang = ang[14900:15900]
-    ang = ang[::15]
+    ang = ang[14900:17900]
+    ang = ang[::30][:-30]
     ang = 2 * (ang - ang.min()) / (ang.max() - ang.min()) - 1
-    gain = 2*np.pi * (35/100)**(-1)
+    gain = 1*np.pi * (35/100)**(-1)
     ang *= gain
     plt.plot(ang)
     N = len(ang)
@@ -19,6 +19,7 @@ if __name__ == "__main__":
 
     t0 = time.time()
     k = milp_problem(phases)
+    #k = k0
     unwrapped_milp = phases + k * 2 * pi
     delta_t = time.time() - t0
 
