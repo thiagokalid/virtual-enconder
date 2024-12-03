@@ -68,24 +68,25 @@ class VisualOdometer:
 
     def get_displacement(self):
         try:
-            # Compute the displacement:
-            img_beg = self.imgs_processed[0]
+            if self.imgs_processed[1] is not None:
+                # Compute the displacement:
+                img_beg = self.imgs_processed[0]
 
-            with self.imgs_lock:
-                img_end = self.imgs_processed[1].copy()
-                # Update the image buffer:
+                with self.imgs_lock:
+                    img_end = self.imgs_processed[1].copy()
+                    # Update the image buffer:
 
-            self.imgs_processed[0] = img_end
+                self.imgs_processed[0] = img_end
 
-            displacement = self._estimate_displacement(img_beg, img_end)
+                displacement = self._estimate_displacement(img_beg, img_end)
 
-            # Update the current position:
-            self.current_position[0] += displacement[0]
-            self.current_position[1] += displacement[1]
+                # Update the current position:
+                self.current_position[0] += displacement[0]
+                self.current_position[1] += displacement[1]
 
-            self.number_of_displacements += 1
+                self.number_of_displacements += 1
 
-            return displacement
+                return displacement
         except NotImplementedError:
             return None, None
 
