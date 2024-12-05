@@ -1,58 +1,66 @@
 import numpy as np
 from numpy.fft import fft2, fftshift
+from PIL import Image
+from .dsp import *
 
 
-def apply_raised_cosine_window(image: np.ndarray):
-    rows, cols = image.shape
-    i = np.arange(rows)
-    j = np.arange(cols)
-    window = 0.5 * (1 + np.cos(np.pi * (2 * i[:, None] - rows) / rows)) * \
-             0.5 * (1 + np.cos(np.pi * (2 * j - cols) / cols))
-    return image * window
+def apply_spatial_window(img: ndarray, method: str, params: dict):
+    match method:
+        case "blackman_harris":
+            return apply_blackman_harris_window(img, params['a0'], params['a1'], params['a2'], params['a3'])
+        case "raised_cosine":
+            return apply_raised_cosine_window(img)
+        case _:
+            return img
 
 
-def blackman_harris_window(size: int, a0: float=0.35875, a1: float=0.48829, a2: float=0.14128, a3: float=0.01168):
-    # a0, a1, a2 e a3 são os coeficientes de janelamento
-    # Criação do vetor de amostras
-    n = np.arange(size)
-    # Cálculo da janela de Blackman-Harris
-    window = a0 - a1 * np.cos(2 * np.pi * n / (size - 1)) + a2 * np.cos(4 * np.pi * n / (size - 1)) - a3 * np.cos(
-        6 * np.pi * n / (size - 1))
-    return window
+def apply_downsampling(img: np.ndarray, method: str, params: dict):
+    factor = params["factor"]
+    newsize = int(img.shape[0] / factor), int(img.shape[1] / factor)
+    img_pil = Image.fromarray(img)
+
+    match method:
+        case "NN":
+            return np.array(img_pil.resize(newsize, Image.NEAREST))
+        case "bilinear":
+            return np.array(img_pil.resize(newsize, Image.BILINEAR))
+        case "bicubic":
+            return np.array(img_pil.resize(newsize, Image.BICUBIC))
+        case _:
+            return img
 
 
-def apply_blackman_harris_window(image: np.ndarray):
-    height, width = image.shape
-    window_row = blackman_harris_window(width)
-    window_col = blackman_harris_window(height)
-    image_windowed = np.outer(window_col, window_row) * image
-    return image_windowed
+def apply_frequency_window(spectrum: np.ndarray, method: str, params: dict):
+    match method:
+        case "Stone_et_al_2001":
+            return ideal_lowpass(spectrum, params["factor"])
+        case _:
+            return spectrum
 
 
-def apply_border_windowing_on_image(image: np.ndarray, border_windowing_method: str="blackman_harris"):
-    if border_windowing_method == "blackman_harris":
-        return apply_blackman_harris_window(image)
-    elif border_windowing_method == "raised_cosine":
-        return apply_raised_cosine_window(image)
-    elif border_windowing_method == None:
-        return image
+# Function which applies all the preprocessing:
 
+def image_preprocessing(img: np.ndarray, configs: dict):
+    # Apply downsampling:
+    img = apply_downsampling(
+        img,
+        method=configs["Downsampling"]["method"],
+        params=configs["Downsampling"]["params"]
+    )
 
-def ideal_lowpass(I: np.ndarray, factor: float = 0.6, method: str = 'Stone_et_al_2001'):
-    if method == 'Stone_et_al_2001':
-        m = factor * I.shape[0] / 2
-        n = factor * I.shape[1] / 2
-        N = np.min([m, n])
-        I = I[int(I.shape[0] // 2 - N): int(I.shape[0] // 2 + N),
-            int(I.shape[1] // 2 - N): int(I.shape[1] // 2 + N)]
-        return I
-    else:
-        raise ValueError('Método não suportado.')
+    # Apply spatial windowing:
+    img = apply_spatial_window(
+        img,
+        method=configs["Spatial Window"]["method"],
+        params=configs["Spatial Window"]["params"]
+    )
 
+    # Apply FFT:
+    img_spectrum = fftshift(fft2(img))
+    img_spectrum = apply_frequency_window(
+        img_spectrum,
+        method=configs["Frequency Window"]["method"],
+        params=configs["Frequency Window"]["params"]
+    )
 
-def image_preprocessing(image: np.ndarray, downsampling_factor: int = 2, method='Stone_et_al_2001'):
-    image = image[::downsampling_factor, ::downsampling_factor]
-    fft_from_image = fftshift(fft2(image))
-    if method is not None:
-        fft_from_image = ideal_lowpass(fft_from_image, method=method)
-    return fft_from_image
+    return img_spectrum
