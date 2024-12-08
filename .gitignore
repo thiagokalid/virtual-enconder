@@ -3,6 +3,9 @@
 *.mp4
 *.png
 *.zip
+*.npy
+*.jpg
+*.mp3
 .idea
 data
 
