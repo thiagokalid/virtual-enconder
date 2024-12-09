@@ -1,11 +1,9 @@
 import numpy as np
 import json
-
-from dbus.decorators import method
+import threading
 
 from .displacement_estimators.svd import svd_method
 from .preprocessing import image_preprocessing
-import threading
 
 DEFAULT_CONFIG = {
     "Displacement Estimation": {
